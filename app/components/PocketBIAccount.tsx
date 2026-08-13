@@ -4,18 +4,29 @@ import { createClient, Session, SupabaseClient } from "@supabase/supabase-js";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./PocketBIAccount.module.css";
 
+type EntitlementRow = { capability: string; value: unknown; ends_at: string | null };
+
 function makeClient(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const key = (process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)?.trim();
   if (!url || !key || url.includes("YOUR-POCKETBI-PROJECT") || key.includes("YOUR_POCKETBI")) return null;
   return createClient(url, key, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   });
 }
 
+function entitlementEnabled(value: unknown): boolean {
+  if (value === true || value === 1 || value === "true") return true;
+  if (value && typeof value === "object" && "enabled" in value) {
+    return (value as { enabled?: unknown }).enabled === true;
+  }
+  return false;
+}
+
 export default function PocketBIAccount() {
   const client = useMemo(() => makeClient(), []);
   const [session, setSession] = useState<Session | null>(null);
+  const [entitlements, setEntitlements] = useState<EntitlementRow[]>([]);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -25,8 +36,19 @@ export default function PocketBIAccount() {
 
   useEffect(() => {
     if (!client) return;
-    client.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession));
+
+    async function sync(nextSession: Session | null) {
+      setSession(nextSession);
+      if (!nextSession) {
+        setEntitlements([]);
+        return;
+      }
+      const { data, error } = await client.rpc("get_my_entitlements");
+      if (!error) setEntitlements((data || []) as EntitlementRow[]);
+    }
+
+    client.auth.getSession().then(({ data }) => sync(data.session));
+    const { data } = client.auth.onAuthStateChange((_event, nextSession) => { void sync(nextSession); });
     return () => data.subscription.unsubscribe();
   }, [client]);
 
@@ -68,12 +90,14 @@ export default function PocketBIAccount() {
   }
 
   const emailLabel = session?.user.email || "PocketBI ID";
+  const hasFullReconcile = entitlements.some((row) => row.capability === "reconcile.full_export" && entitlementEnabled(row.value));
+  const membershipLabel = hasFullReconcile ? "PocketBI Pro" : "PocketBI Free";
 
   return (
     <div className={styles.accountShell}>
       {session ? (
         <div className={styles.signedIn}>
-          <div><span>PocketBI ID</span><strong>{emailLabel}</strong></div>
+          <div><span>{membershipLabel}</span><strong>{emailLabel}</strong></div>
           <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
         </div>
       ) : (
