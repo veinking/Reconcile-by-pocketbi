@@ -36,6 +36,7 @@ export default function PocketBIAccount() {
 
   useEffect(() => {
     if (!client) return;
+    const supabase = client;
 
     async function sync(nextSession: Session | null) {
       setSession(nextSession);
@@ -43,12 +44,12 @@ export default function PocketBIAccount() {
         setEntitlements([]);
         return;
       }
-      const { data, error } = await client.rpc("get_my_entitlements");
+      const { data, error } = await supabase.rpc("get_my_entitlements");
       if (!error) setEntitlements((data || []) as EntitlementRow[]);
     }
 
-    client.auth.getSession().then(({ data }) => sync(data.session));
-    const { data } = client.auth.onAuthStateChange((_event, nextSession) => { void sync(nextSession); });
+    supabase.auth.getSession().then(({ data }) => sync(data.session));
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => { void sync(nextSession); });
     return () => data.subscription.unsubscribe();
   }, [client]);
 
