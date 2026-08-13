@@ -27,6 +27,8 @@ export default function PocketBIAccount() {
   const client = useMemo(() => makeClient(), []);
   const [session, setSession] = useState<Session | null>(null);
   const [entitlements, setEntitlements] = useState<EntitlementRow[]>([]);
+  const [entitlementsReady, setEntitlementsReady] = useState(false);
+  const [entitlementError, setEntitlementError] = useState(false);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -40,15 +42,25 @@ export default function PocketBIAccount() {
 
     async function sync(nextSession: Session | null) {
       setSession(nextSession);
+      setEntitlementError(false);
       if (!nextSession) {
         setEntitlements([]);
+        setEntitlementsReady(true);
         return;
       }
+
+      setEntitlementsReady(false);
       const { data, error } = await supabase.rpc("get_my_entitlements");
-      if (!error) setEntitlements((data || []) as EntitlementRow[]);
+      if (error) {
+        setEntitlements([]);
+        setEntitlementError(true);
+      } else {
+        setEntitlements((data || []) as EntitlementRow[]);
+      }
+      setEntitlementsReady(true);
     }
 
-    supabase.auth.getSession().then(({ data }) => sync(data.session));
+    supabase.auth.getSession().then(({ data }) => { void sync(data.session); });
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => { void sync(nextSession); });
     return () => data.subscription.unsubscribe();
   }, [client]);
@@ -67,7 +79,12 @@ export default function PocketBIAccount() {
         setOpen(false);
         setPassword("");
       } else {
-        const { data, error } = await client.auth.signUp({ email: email.trim(), password });
+        const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
+        const { data, error } = await client.auth.signUp({
+          email: email.trim(),
+          password,
+          options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
+        });
         if (error) throw error;
         if (data.session) {
           setOpen(false);
@@ -92,7 +109,13 @@ export default function PocketBIAccount() {
 
   const emailLabel = session?.user.email || "PocketBI ID";
   const hasFullReconcile = entitlements.some((row) => row.capability === "reconcile.full_export" && entitlementEnabled(row.value));
-  const membershipLabel = hasFullReconcile ? "PocketBI Pro" : "PocketBI Free";
+  const membershipLabel = entitlementError
+    ? "PocketBI access unavailable"
+    : !entitlementsReady
+      ? "Checking PocketBI access…"
+      : hasFullReconcile
+        ? "PocketBI Pro"
+        : "PocketBI Free";
 
   return (
     <div className={styles.accountShell}>
@@ -118,7 +141,7 @@ export default function PocketBIAccount() {
             <p className={styles.copy}>The same identity can be used across PocketBI products. Reconcile files and product data stay separate unless you explicitly move something between tools.</p>
             <form onSubmit={submit}>
               <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
-              <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={6} required /></label>
+              <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={8} required /></label>
               {message && <div className={styles.message}>{message}</div>}
               <button className={styles.primary} type="submit" disabled={busy}>{busy ? "Working…" : mode === "signin" ? "Sign in" : "Create PocketBI ID"}</button>
             </form>
