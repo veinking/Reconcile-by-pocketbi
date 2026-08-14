@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, useMemo, useState } from "react";
+import EntitledDownloadButton from "./components/EntitledDownloadButton";
 
 type FileSummary = { fileName: string; headers: string[]; rowCount: number };
 type KeySuggestion = { keyA: string; keyB: string; score: number; reason: string };
@@ -45,17 +46,10 @@ function formatNumber(value: number) {
 }
 
 function statusLabel(status: string) {
-  return status
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+  return status.replace(/_/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function FilePicker({
-  label,
-  hint,
-  file,
-  onChange,
-}: {
+function FilePicker({ label, hint, file, onChange }: {
   label: string;
   hint: string;
   file: File | null;
@@ -127,17 +121,6 @@ export default function Home() {
     }
   }
 
-  function downloadReport() {
-    if (!result?.discrepancyCsv) return;
-    const blob = new Blob([result.discrepancyCsv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = "pocketbi-reconcile-discrepancies.csv";
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
   return (
     <main>
       <header className="site-header">
@@ -155,13 +138,8 @@ export default function Home() {
           <div>
             <p className="eyebrow">PocketBI Reconcile</p>
             <h1>Find what <span>doesn&apos;t match.</span></h1>
-            <p className="hero-copy">
-              Drop in two business exports. Reconcile identifies missing records, changed values,
-              duplicate keys, and numeric discrepancies—then gives you a clean report to act on.
-            </p>
-            <div className="trust-row">
-              <span>CSV + Excel</span><span>No account required</span><span>Deterministic comparison</span><span>12 MB per file</span>
-            </div>
+            <p className="hero-copy">Drop in two business exports. Reconcile identifies missing records, changed values, duplicate keys, and numeric discrepancies—then gives you a clean report to act on.</p>
+            <div className="trust-row"><span>CSV + Excel</span><span>No account required</span><span>Deterministic comparison</span><span>12 MB per file</span></div>
           </div>
           <div className="hero-panel">
             <div className="mini-head"><span>RECONCILIATION</span><span className="online">● READY</span></div>
@@ -184,10 +162,7 @@ export default function Home() {
 
         {result && (
           <div className="key-panel">
-            <div>
-              <span className="panel-label">Match records using</span>
-              {result.selectedKey?.automatic && <span className="auto-chip">Auto-suggested</span>}
-            </div>
+            <div><span className="panel-label">Match records using</span>{result.selectedKey?.automatic && <span className="auto-chip">Auto-suggested</span>}</div>
             <div className="key-grid">
               <label>File A key<select value={keyA} onChange={(e) => setKeyA(e.target.value)}>{result.files.a.headers.map((header) => <option key={`a-${header}`} value={header}>{header}</option>)}</select></label>
               <div className="equals">=</div>
@@ -200,9 +175,7 @@ export default function Home() {
         {error && <div className="error">{error}</div>}
 
         <div className="run-row">
-          <button className="primary" disabled={!canAnalyze} onClick={analyze}>
-            {loading ? "Comparing files…" : result ? "Re-run comparison" : "Compare files"}
-          </button>
+          <button className="primary" disabled={!canAnalyze} onClick={analyze}>{loading ? "Comparing files…" : result ? "Re-run comparison" : "Compare files"}</button>
           <p>Uploads are processed for this request. The MVP does not intentionally persist your files.</p>
         </div>
       </section>
@@ -211,7 +184,7 @@ export default function Home() {
         <section className="wrap results">
           <div className="result-title">
             <div><p className="eyebrow">Result</p><h2>{summary.matchRate}% record match rate</h2></div>
-            <button className="secondary" onClick={downloadReport}>Download discrepancy CSV</button>
+            <EntitledDownloadButton csv={result.discrepancyCsv} />
           </div>
 
           <div className="score-grid">
