@@ -10,6 +10,7 @@ export default function PocketBIAccount() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -18,6 +19,12 @@ export default function PocketBIAccount() {
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!client || busy) return;
+
+    if (mode === "signup" && password !== confirmPassword) {
+      setMessage("Passwords do not match.");
+      return;
+    }
+
     setBusy(true);
     setMessage("");
     try {
@@ -26,6 +33,7 @@ export default function PocketBIAccount() {
         if (error) throw error;
         setOpen(false);
         setPassword("");
+        setConfirmPassword("");
       } else {
         const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
         const { data, error } = await client.auth.signUp({
@@ -37,8 +45,11 @@ export default function PocketBIAccount() {
         if (data.session) {
           setOpen(false);
           setPassword("");
+          setConfirmPassword("");
         } else {
           setMessage("Account created. Check your email if confirmation is required, then sign in with the same PocketBI ID anywhere in the ecosystem.");
+          setPassword("");
+          setConfirmPassword("");
         }
       }
     } catch (error) {
@@ -53,6 +64,13 @@ export default function PocketBIAccount() {
     setBusy(true);
     await client.auth.signOut();
     setBusy(false);
+  }
+
+  function switchMode() {
+    setMode((current) => current === "signin" ? "signup" : "signin");
+    setPassword("");
+    setConfirmPassword("");
+    setMessage("");
   }
 
   const membershipLabel = entitlementError
@@ -86,10 +104,13 @@ export default function PocketBIAccount() {
             <form onSubmit={submit}>
               <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
               <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={8} required /></label>
+              {mode === "signup" && (
+                <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label>
+              )}
               {message && <div className={styles.message}>{message}</div>}
               <button className={styles.primary} type="submit" disabled={busy}>{busy ? "Working…" : mode === "signin" ? "Sign in" : "Create PocketBI ID"}</button>
             </form>
-            <button className={styles.switcher} type="button" onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMessage(""); }}>
+            <button className={styles.switcher} type="button" onClick={switchMode}>
               {mode === "signin" ? "New to PocketBI? Create an account" : "Already have PocketBI ID? Sign in"}
             </button>
           </section>
