@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import PocketBIAccount from "./components/PocketBIAccount";
+import { PocketBIProvider } from "./components/PocketBIProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -11,8 +12,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body>
-        {children}
-        <PocketBIAccount />
+        <PocketBIProvider>
+          {children}
+          <PocketBIAccount />
+        </PocketBIProvider>
       </body>
     </html>
   );
