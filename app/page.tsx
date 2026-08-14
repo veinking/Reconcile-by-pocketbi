@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useState } from "react";
 import EntitledDownloadButton from "./components/EntitledDownloadButton";
+import { usePocketBI } from "./components/PocketBIProvider";
 
 type FileSummary = { fileName: string; headers: string[]; rowCount: number };
 type KeySuggestion = { keyA: string; keyB: string; score: number; reason: string };
@@ -31,6 +32,8 @@ type ApiResult = {
   suggestions: KeySuggestion[];
   selectedKey: { keyA: string; keyB: string; automatic: boolean } | null;
   needsKeySelection: boolean;
+  exportAccess: boolean;
+  previewLimited?: boolean;
   reconciliation?: {
     summary: Summary;
     report: Record<string, string>[];
@@ -68,6 +71,7 @@ function FilePicker({ label, hint, file, onChange }: {
 }
 
 export default function Home() {
+  const { session } = usePocketBI();
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
   const [keyA, setKeyA] = useState("");
@@ -80,14 +84,14 @@ export default function Home() {
   const summary = result?.reconciliation?.summary;
   const preview = useMemo(() => result?.reconciliation?.report.slice(0, 10) ?? [], [result]);
 
-  const resetForFile = (side: "a" | "b", file: File | null) => {
+  function resetForFile(side: "a" | "b", file: File | null) {
     if (side === "a") setFileA(file);
     else setFileB(file);
     setResult(null);
     setKeyA("");
     setKeyB("");
     setError("");
-  };
+  }
 
   async function analyze() {
     if (!fileA || !fileB) return;
@@ -101,7 +105,10 @@ export default function Home() {
       if (keyA) form.append("keyA", keyA);
       if (keyB) form.append("keyB", keyB);
 
-      const response = await fetch("/api/reconcile", { method: "POST", body: form });
+      const headers = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : undefined;
+      const response = await fetch("/api/reconcile", { method: "POST", body: form, headers });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Reconciliation failed.");
 
@@ -164,9 +171,9 @@ export default function Home() {
           <div className="key-panel">
             <div><span className="panel-label">Match records using</span>{result.selectedKey?.automatic && <span className="auto-chip">Auto-suggested</span>}</div>
             <div className="key-grid">
-              <label>File A key<select value={keyA} onChange={(e) => setKeyA(e.target.value)}>{result.files.a.headers.map((header) => <option key={`a-${header}`} value={header}>{header}</option>)}</select></label>
+              <label>File A key<select value={keyA} onChange={(event) => setKeyA(event.target.value)}>{result.files.a.headers.map((header) => <option key={`a-${header}`} value={header}>{header}</option>)}</select></label>
               <div className="equals">=</div>
-              <label>File B key<select value={keyB} onChange={(e) => setKeyB(e.target.value)}>{result.files.b.headers.map((header) => <option key={`b-${header}`} value={header}>{header}</option>)}</select></label>
+              <label>File B key<select value={keyB} onChange={(event) => setKeyB(event.target.value)}>{result.files.b.headers.map((header) => <option key={`b-${header}`} value={header}>{header}</option>)}</select></label>
             </div>
             {result.suggestions[0] && <p className="suggestion">Top suggestion confidence: {result.suggestions[0].score}/100 · {result.suggestions[0].reason}</p>}
           </div>
@@ -201,6 +208,10 @@ export default function Home() {
             <span><b>{summary.sharedColumns}</b> shared columns</span>
           </div>
 
+          {result.previewLimited && (
+            <div className="error">Free preview is limited to the first 10 discrepancies. PocketBI Pro unlocks the complete report and CSV export.</div>
+          )}
+
           {result.reconciliation.numericDiscrepancies.length > 0 && (
             <div className="result-card">
               <div className="card-head"><div><p className="panel-label">Numeric differences</p><h3>Where totals move</h3></div><span>File B − File A</span></div>
@@ -218,7 +229,7 @@ export default function Home() {
           )}
 
           <div className="result-card">
-            <div className="card-head"><div><p className="panel-label">Discrepancy preview</p><h3>{formatNumber(result.reconciliation.report.length)} items need attention</h3></div><span>Showing first 10</span></div>
+            <div className="card-head"><div><p className="panel-label">Discrepancy preview</p><h3>{formatNumber(preview.length)} shown</h3></div><span>{result.previewLimited ? "Free preview" : "Complete access"}</span></div>
             {preview.length ? (
               <div className="table-wrap"><table><thead><tr><th>Status</th><th>Key</th><th>Changed fields</th><th>Note</th></tr></thead><tbody>
                 {preview.map((row, index) => <tr key={`${row.key}-${index}`}><td><span className={`status status-${row.status}`}>{statusLabel(row.status)}</span></td><td>{row.key}</td><td>{row.changed_columns || "—"}</td><td>{row.note || "—"}</td></tr>)}
