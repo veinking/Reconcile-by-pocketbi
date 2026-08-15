@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "validate:release": "node scripts/validate-release.mjs"
+  },
+  "engines": {
+    "node": ">=22 <25"
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",
@@ -13,7 +17,7 @@
     "papaparse": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "xlsx": "latest"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/node": "latest",
