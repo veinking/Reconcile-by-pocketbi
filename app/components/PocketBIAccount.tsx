@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import { usePocketBI } from "./PocketBIProvider";
 import styles from "./PocketBIAccount.module.css";
 
+const POCKETBI_ACCOUNT_HOME = "https://pocketbi.app/account";
+
 export default function PocketBIAccount() {
   const { client, session, loading, entitlementError, hasCapability } = usePocketBI();
   const [open, setOpen] = useState(false);
@@ -47,7 +49,7 @@ export default function PocketBIAccount() {
           setPassword("");
           setConfirmPassword("");
         } else {
-          setMessage("Account created. Check your email if confirmation is required, then sign in with the same PocketBI ID anywhere in the ecosystem.");
+          setMessage("PocketBI ID created. Check your email if confirmation is required, then return here and sign in to Reconcile with that same ID.");
           setPassword("");
           setConfirmPassword("");
         }
@@ -85,12 +87,13 @@ export default function PocketBIAccount() {
     <div className={styles.accountShell}>
       {session ? (
         <div className={styles.signedIn}>
-          <div><span>{membershipLabel}</span><strong>{session.user.email || "PocketBI ID"}</strong></div>
-          <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
+          <div><span>{membershipLabel} · Reconcile session</span><strong>{session.user.email || "PocketBI ID"}</strong></div>
+          <a className={styles.accountHomeLink} href={POCKETBI_ACCOUNT_HOME} target="_blank" rel="noreferrer">PocketBI Home ↗</a>
+          <button type="button" onClick={signOut} disabled={busy}>Sign out here</button>
         </div>
       ) : (
         <button className={styles.accountButton} type="button" onClick={() => setOpen(true)}>
-          <span className={styles.dot} /> PocketBI ID
+          <span className={styles.dot} /> Connect PocketBI ID
         </button>
       )}
 
@@ -98,9 +101,9 @@ export default function PocketBIAccount() {
         <div className={styles.backdrop} role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}>
           <section className={styles.dialog} role="dialog" aria-modal="true" aria-label="PocketBI account">
             <button className={styles.close} type="button" onClick={() => setOpen(false)} aria-label="Close">×</button>
-            <p className={styles.eyebrow}>PocketBI ID</p>
-            <h2>{mode === "signin" ? "Use your PocketBI account." : "Create one PocketBI account."}</h2>
-            <p className={styles.copy}>The same identity can be used across PocketBI products. Reconcile files and product data stay separate unless you explicitly move something between tools.</p>
+            <p className={styles.eyebrow}>PocketBI ID · Reconcile</p>
+            <h2>{mode === "signin" ? "Connect your PocketBI ID here." : "Create one PocketBI ID."}</h2>
+            <p className={styles.copy}>This signs the current Reconcile browser into your shared PocketBI identity. The account is shared across the ecosystem; separate web domains do not automatically share a browser session yet. Reconcile files and reports stay separate unless you explicitly move them between tools.</p>
             <form onSubmit={submit}>
               <label>Email<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required /></label>
               <label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete={mode === "signin" ? "current-password" : "new-password"} minLength={8} required /></label>
@@ -108,11 +111,12 @@ export default function PocketBIAccount() {
                 <label>Confirm password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={8} required /></label>
               )}
               {message && <div className={styles.message}>{message}</div>}
-              <button className={styles.primary} type="submit" disabled={busy}>{busy ? "Working…" : mode === "signin" ? "Sign in" : "Create PocketBI ID"}</button>
+              <button className={styles.primary} type="submit" disabled={busy}>{busy ? "Working…" : mode === "signin" ? "Sign in to Reconcile" : "Create PocketBI ID"}</button>
             </form>
             <button className={styles.switcher} type="button" onClick={switchMode}>
-              {mode === "signin" ? "New to PocketBI? Create an account" : "Already have PocketBI ID? Sign in"}
+              {mode === "signin" ? "New to PocketBI? Create an account" : "Already have a PocketBI ID? Sign in here"}
             </button>
+            <a className={styles.accountHomeDialogLink} href={POCKETBI_ACCOUNT_HOME} target="_blank" rel="noreferrer">Open PocketBI Account Home ↗</a>
           </section>
         </div>
       )}
